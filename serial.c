@@ -72,12 +72,12 @@ int send_and_verify(int fd, unsigned char c)
 	return 0;
 }
 
-int wait_for_device(int fd)
+int wait_for_device(int fd, int rate)
 {
 	if (send_and_verify(fd, CMD_READY))
 		return -1;
 
-	if (send_and_verify(fd, CMD_RATE(1)))
+	if (send_and_verify(fd, CMD_RATE(rate)))
 		return -1;
 
 	if (set_nonblock(fd, false)) {

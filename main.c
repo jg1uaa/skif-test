@@ -2,14 +2,16 @@
 // SPDX-FileCopyrightText: 2026 SASANO Takayoshi <uaa@uaa.org.uk>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include "serial.h"
 
 static int PinStatus = 0;
 static int Ticks = 0;
+static int Rate = 1;
 
-#define TicksToMilliSeconds(x) ((x) * 0.125)
-#define TICKS_LIMIT ((int)(10000 / TicksToMilliSeconds(1)))
+#define TicksToMilliSeconds(x) ((x) * 0.0625 * (1 << Rate))
+#define TICKS_LIMIT ((int)(10000.0 / TicksToMilliSeconds(1)))
 
 static char *pinstatus_char(unsigned char pin)
 {
@@ -66,7 +68,7 @@ int main(int argc, char *argv[])
 	int fd;
 
 	if (argc < 2) {
-		fprintf(stderr, "%s [device]\n", argv[0]);
+		fprintf(stderr, "%s [device] [(rate)]\n", argv[0]);
 		goto fin0;
 	}
 
@@ -76,8 +78,11 @@ int main(int argc, char *argv[])
 		goto fin0;
 	}
 
+	if (argc >= 3)
+		Rate = atoi(argv[2]) & 7;
+
 	fprintf(stderr, "wait for device...\n");
-	if (wait_for_device(fd)) {
+	if (wait_for_device(fd, Rate)) {
 		fprintf(stderr, "device not ready\n");
 		goto fin1;
 	}
