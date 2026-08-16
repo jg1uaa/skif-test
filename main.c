@@ -6,9 +6,12 @@
 #include <unistd.h>
 #include "serial.h"
 
+extern char *optarg;
+
 static int PinStatus = 0;
 static int Ticks = 0;
 static int Rate = 1;
+static int Debounce = 0;
 
 #define TicksToMilliSeconds(x) ((x) * 0.0625 * (1 << Rate))
 #define TICKS_LIMIT ((int)(10000.0 / TicksToMilliSeconds(1)))
@@ -65,24 +68,37 @@ static int do_main(int fd)
 
 int main(int argc, char *argv[])
 {
-	int fd;
+	int ch, fd;
+	char *port = NULL;
 
-	if (argc < 2) {
-		fprintf(stderr, "%s [device] [(rate)]\n", argv[0]);
+	while ((ch = getopt(argc, argv, "l:r:d:")) != -1) {
+		switch (ch) {
+		case 'l':
+			port = optarg;
+			break;
+		case 'r':
+			Rate = atoi(optarg);
+			break;
+		case 'd':
+			Debounce = atoi(optarg);
+			break;
+		}
+	}
+
+	if (port == NULL) {
+		fprintf(stderr, "%s -l [device] -r [rate] -d [debounce]\n",
+			argv[0]);
 		goto fin0;
 	}
 
-	fd = open_serial(argv[1]);
+	fd = open_serial(port);
 	if (fd < 0) {
 		fprintf(stderr, "device open error\n");
 		goto fin0;
 	}
 
-	if (argc >= 3)
-		Rate = atoi(argv[2]) & 7;
-
 	fprintf(stderr, "wait for device...\n");
-	if (wait_for_device(fd, Rate)) {
+	if (wait_for_device(fd, Rate, Debounce)) {
 		fprintf(stderr, "device not ready\n");
 		goto fin1;
 	}

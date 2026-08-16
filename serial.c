@@ -72,8 +72,10 @@ int send_and_verify(int fd, unsigned char c)
 	return 0;
 }
 
-int wait_for_device(int fd, int rate)
+int wait_for_device(int fd, int rate, int debounce)
 {
+	char c[2];
+
 	if (send_and_verify(fd, CMD_READY))
 		return -1;
 
@@ -84,6 +86,10 @@ int wait_for_device(int fd, int rate)
 		printf("non-block mode set failed\n");
 		return -1;
 	}
+
+	c[0] = CMD_DEBOUNCE_COUNTER;
+	c[1] = debounce;
+	write(fd, &c, sizeof(c));
 
 	return 0;
 }
