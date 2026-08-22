@@ -57,7 +57,7 @@ int send_and_verify(int fd, unsigned char c)
 
 	for (i = 0; i < 10; i++) {
 		write(fd, &c, sizeof(c));
-		sleep(1);
+		usleep(100);
 		
 		if (read(fd, &r, sizeof(r)) >= 1) {
 			if (r == c) break;
@@ -72,11 +72,11 @@ int send_and_verify(int fd, unsigned char c)
 	return 0;
 }
 
-int wait_for_device(int fd, int rate, int debounce)
+int wait_for_device(int fd, int rate, int debounce, int max)
 {
 	char c[2];
 
-	if (send_and_verify(fd, CMD_READY))
+	if (send_and_verify(fd, CMD_RESET))
 		return -1;
 
 	if (send_and_verify(fd, CMD_RATE(rate)))
@@ -90,6 +90,12 @@ int wait_for_device(int fd, int rate, int debounce)
 	c[0] = CMD_DEBOUNCE_COUNTER;
 	c[1] = debounce;
 	write(fd, &c, sizeof(c));
+	usleep(100);
+
+	c[0] = CMD_MAX_COUNTER;
+	c[1] = max;
+	write(fd, &c, sizeof(c));
+	usleep(100);
 
 	return 0;
 }

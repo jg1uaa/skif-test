@@ -10,8 +10,9 @@ extern char *optarg;
 
 static int PinStatus = 0;
 static int Ticks = 0;
-static int Rate = 1;
-static int Debounce = 0;
+static int Rate = DEFAULT_RATE;
+static int Debounce = DEFAULT_DEBOUNCE_COUNTER;
+static int MaxCounter = DEFAULT_MAX_COUNTER;
 
 #define TicksToMilliSeconds(x) ((x) * 0.0625 * (1 << Rate))
 #define TICKS_LIMIT ((int)(10000.0 / TicksToMilliSeconds(1)))
@@ -71,7 +72,7 @@ int main(int argc, char *argv[])
 	int ch, fd;
 	char *port = NULL;
 
-	while ((ch = getopt(argc, argv, "l:r:d:")) != -1) {
+	while ((ch = getopt(argc, argv, "l:r:d:m:")) != -1) {
 		switch (ch) {
 		case 'l':
 			port = optarg;
@@ -82,11 +83,15 @@ int main(int argc, char *argv[])
 		case 'd':
 			Debounce = atoi(optarg);
 			break;
+		case 'm':
+			MaxCounter = atoi(optarg);
+			break;
 		}
 	}
 
 	if (port == NULL) {
-		fprintf(stderr, "%s -l [device] -r [rate] -d [debounce]\n",
+		fprintf(stderr, "%s -l [device] -r [(rate)] "
+			"-d [(debounce)] -m [(max count)]\n",
 			argv[0]);
 		goto fin0;
 	}
@@ -98,7 +103,7 @@ int main(int argc, char *argv[])
 	}
 
 	fprintf(stderr, "wait for device...\n");
-	if (wait_for_device(fd, Rate, Debounce)) {
+	if (wait_for_device(fd, Rate, Debounce, MaxCounter)) {
 		fprintf(stderr, "device not ready\n");
 		goto fin1;
 	}

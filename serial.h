@@ -7,6 +7,6 @@
 #include "skif-arduino.h"
 
 int open_serial(char *);
-int wait_for_device(int, int, int);
+int wait_for_device(int, int, int, int);
 
 #endif

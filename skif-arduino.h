@@ -12,10 +12,15 @@
 #define COUNTER_MASK (0xff ^ PIN_MASK)
 
 #define CMD_RATE(x) ('0' + (x))
-#define CMD_READY '/'
+#define CMD_RESET '/'
 #define CMD_STOP '.'
 #define CMD_START '-'
 #define CMD_QUERY_RATE ','
 #define CMD_DEBOUNCE_COUNTER '+'
+#define CMD_MAX_COUNTER '*'
+
+#define DEFAULT_RATE 1
+#define DEFAULT_DEBOUNCE_COUNTER 0
+#define DEFAULT_MAX_COUNTER 32
 
 #endif
