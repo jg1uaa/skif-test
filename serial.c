@@ -50,52 +50,58 @@ fin0:
 	return fd;
 }
 
-int send_and_verify(int fd, unsigned char c)
+static int send_command(int fd, unsigned char *c, int len)
 {
 	unsigned char r;
 	int i;
 
+	/* send command */
+	write(fd, c, len);
+
+	/* wait for response */
 	for (i = 0; i < 10; i++) {
-		write(fd, &c, sizeof(c));
-		usleep(10000);
-		
-		if (read(fd, &r, sizeof(r)) >= 1) {
-			if (r == c) break;
-			else return -1;
+		if (read(fd, &r, sizeof(r)) < 1) {
+			usleep(10000);
+			continue;
 		}
 
-		sleep(1);
+		if (r == 0)
+			break;
+		i = 0;
 	}
-	if (i >= 10)
-		return -1;
 
-	return 0;
+	return (i < 10) ? 0 : -1;
 }
 
 int wait_for_device(int fd, int rate, int debounce, int max)
 {
+	int i;
 	char c[2];
 
-	if (send_and_verify(fd, CMD_RESET))
+	c[0] = CMD_RESET;
+	for (i = 0; i < 10; i++) {
+		if (!send_command(fd, c, 1))
+			break;
+		usleep(100000);
+	}
+	if (i >= 10)
 		return -1;
 
-	if (send_and_verify(fd, CMD_RATE(rate)))
-		return -1;
+	c[0] = CMD_RATE(rate);
+	send_command(fd, c, 1);
+
+	c[0] = CMD_DEBOUNCE_COUNTER;
+	c[1] = debounce;
+	send_command(fd, c, 2);
+
+	c[0] = CMD_MAX_COUNTER;
+	c[1] = max;
+	send_command(fd, c, 2);
 
 	if (set_nonblock(fd, false)) {
 		printf("non-block mode set failed\n");
 		return -1;
 	}
-
-	c[0] = CMD_DEBOUNCE_COUNTER;
-	c[1] = debounce;
-	write(fd, &c, sizeof(c));
-	usleep(10000);
-
-	c[0] = CMD_MAX_COUNTER;
-	c[1] = max;
-	write(fd, &c, sizeof(c));
-	usleep(10000);
 
 	return 0;
 }
