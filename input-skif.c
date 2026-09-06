@@ -22,7 +22,6 @@
 
 static int PinStatus = 0;
 static int Ticks = 0;
-static bool Timeout = false;
 static int fd_ser;
 
 static bool set_nonblock(int d, bool nonblock)
@@ -91,7 +90,7 @@ static int send_command(int fd, unsigned char *c, int len)
 static int wait_for_device(int fd, int rate, int debounce, int max)
 {
 	int i;
-	char c[2];
+	unsigned char c[2];
 
 	c[0] = CMD_RESET;
 	for (i = 0; i < 10; i++) {
@@ -124,6 +123,11 @@ static int wait_for_device(int fd, int rate, int debounce, int max)
 int skif_init(bool start, char *arg, int var)
 {
 	int ret = -1;
+
+	if (!start) {
+		ret = 0;
+		goto fin1;
+	}
 
 	if ((fd_ser = open_serial((arg == NULL) ? "/dev/ttyACM0" : arg)) < 0) {
 		fprintf(stderr, "device open error\n");
@@ -159,23 +163,15 @@ static bool get_status_and_time(unsigned char status)
 	if (!counter) {
 		PinStatus = pin;
 		Ticks = 0;
-		Timeout = false;
 	} else if (PinStatus != pin) {
 		q.elapsed_time_us = TicksToMicroSeconds(Ticks);
 		q.state = PinStatus ? 1 : 0;
 		quit = (enqueue(&q) < 0);
 		PinStatus = pin;
 		Ticks = counter;
-		Timeout = false;
-	} else if (!Timeout) {
-		if (Ticks < TICKS_LIMIT) {
+	} else {
+		if (Ticks < TICKS_LIMIT)
 			Ticks += counter;
-		} else {
-			q.elapsed_time_us = TicksToMicroSeconds(TICKS_LIMIT);
-			q.state = PinStatus ? 1 : 0;
-			quit = (enqueue(&q) < 0);
-			Timeout = true;
-		}
 	}
 
 	return quit;
@@ -183,20 +179,14 @@ static bool get_status_and_time(unsigned char status)
 
 void *skif_thread(void *arg)
 {
-	int r;
 	unsigned char c;
 
 	c = CMD_START;
 	write(fd_ser, &c, sizeof(c));
 
 	while (1) {
-		r = read(fd_ser, &c, sizeof(c));
-		if (r < 0) {
+		if (read(fd_ser, &c, sizeof(c)) < 1)
 			break;
-		} if (r == 0) {
-			sleep(1);
-			continue;
-		}
 
 		get_status_and_time(c);
 	}
