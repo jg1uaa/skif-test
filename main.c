@@ -4,115 +4,124 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "serial.h"
+#include <pthread.h>
+#include "queue.h"
+#include "input-libinput.h"
+#include "input-skif.h"
 
 extern char *optarg;
+static uint32_t basetime_us = 100000;
 
-static int PinStatus = 0;
-static int Ticks = 0;
-static int Rate = DEFAULT_RATE;
-static int Debounce = DEFAULT_DEBOUNCE_COUNTER;
-static int MaxCounter = DEFAULT_MAX_COUNTER;
-
-#define TicksToMilliSeconds(x) ((x) * 0.0625 * (1 << Rate))
-#define TICKS_LIMIT ((int)(10000.0 / TicksToMilliSeconds(1)))
-
-static char *pinstatus_char(unsigned char pin)
+static void push_status(struct queue_entry *q)
 {
-	static char c[3];
+	char c;
 
-	c[0] = (pin & PIN1_ON) ? 'o' : '-';
-	c[1] = (pin & PIN0_ON) ? 'o' : '-';
-	c[2] = '\0';
-
-	return c;
-}
-
-static void get_status_and_time(unsigned char status)
-{
-	int pin, counter;
-
-	pin = status & PIN_MASK;
-	counter = status & COUNTER_MASK;
-
-	if (!counter) {
-		printf("%s (initial state)\n", pinstatus_char(pin));
-		PinStatus = pin;
-		Ticks = 0;
-	} else if (PinStatus != pin) {
-		printf("%s: %9.3f ms\n",
-		       pinstatus_char(PinStatus), TicksToMilliSeconds(Ticks));
-		PinStatus = pin;
-		Ticks = counter;
+	if (q->state) {
+		if (q->elapsed_time_us < basetime_us / 2)
+			c = 'X';
+		else if (q->elapsed_time_us < (basetime_us * 3) / 2)
+			c = '.';
+		else if (q->elapsed_time_us < basetime_us * 2)
+			c = '?';
+		else if (q->elapsed_time_us < basetime_us * 6)
+			c = '-';
+		else
+			c = 'X';
 	} else {
-		if (Ticks < TICKS_LIMIT)
-			Ticks += counter;
+		if (q->elapsed_time_us < basetime_us / 2)
+			c = 'x';
+		else if (q->elapsed_time_us < (basetime_us * 3) / 2)
+			c = 0;
+		else if (q->elapsed_time_us < basetime_us * 2)
+			c = '!';
+		else if (q->elapsed_time_us < basetime_us * 4)
+			c = ' ';
+		else
+			c = '\n';
+	}
+
+	if (c) {
+		putchar(c);
+		fflush(stdout);
 	}
 }
 
-static int do_main(int fd)
+static void do_main(void)
 {
-	unsigned char c;
-
-	c = CMD_START;
-	write(fd, &c, sizeof(c));
+	struct queue_entry q;
+	int r, last_sw = -1;
+	bool timeout = false, started = false;
 
 	while (1) {
-		if (read(fd, &c, sizeof(c)) < 1) {
-			sleep(1);
-			continue;
-		}
+		r = dequeue(&q, basetime_us / 100);
 
-		get_status_and_time(c);
+		if (r < 0) {
+			/* error */
+			break;
+		} else if (r == 0) {
+			if (q.state != last_sw) {
+				if (!timeout)
+					push_status(&q);
+
+				started = true;
+				timeout = false;
+				last_sw = q.state;
+			}
+		} else if (r > 0 && started && !timeout) {
+			q.state = !last_sw;
+			q.elapsed_time_us = basetime_us * 10;
+			push_status(&q);
+
+			timeout = true;
+		}
 	}
 }
 
 int main(int argc, char *argv[])
 {
-	int ch, fd;
+	int ch;
 	char *port = NULL;
+	pthread_t tid;
+	int (*init)(bool, char *, int) = skif_init;
+	void *(*thread)(void *) = skif_thread;
 
-	while ((ch = getopt(argc, argv, "l:r:d:m:")) != -1) {
+	while ((ch = getopt(argc, argv, "l:d:k")) != -1) {
 		switch (ch) {
 		case 'l':
 			port = optarg;
 			break;
-		case 'r':
-			Rate = atoi(optarg);
-			break;
 		case 'd':
-			Debounce = atoi(optarg);
+			basetime_us = atoi(optarg) * 1000;
 			break;
-		case 'm':
-			MaxCounter = atoi(optarg);
+		case 'k':
+			init = libinput_init;
+			thread = libinput_thread;
 			break;
 		}
 	}
 
-	if (port == NULL) {
-		fprintf(stderr, "%s -l [device] -r [(rate)] "
-			"-d [(debounce)] -m [(max count)]\n",
-			argv[0]);
+	if (queue_init(true) < 0) {
+		fprintf(stderr, "que_init error\n");
 		goto fin0;
 	}
 
-	fd = open_serial(port);
-	if (fd < 0) {
-		fprintf(stderr, "device open error\n");
-		goto fin0;
-	}
-
-	fprintf(stderr, "wait for device...\n");
-	if (wait_for_device(fd, Rate, Debounce, MaxCounter)) {
-		fprintf(stderr, "device not ready\n");
+	if ((*init)(true, port, 0) < 0) {
+		fprintf(stderr, "device initialize error\n");
 		goto fin1;
 	}
 
-	fprintf(stderr, "device ready\n");
-	do_main(fd);
+	if (pthread_create(&tid, NULL, thread, NULL)) {
+		fprintf(stderr, "pthread_create error\n");
+		goto fin2;
+	}
 
+	do_main();
+
+	pthread_join(tid, NULL);
+fin2:
+	(*init)(false, port, 0);
 fin1:
-	close(fd);
+	queue_init(false);
 fin0:
 	return 0;
 }

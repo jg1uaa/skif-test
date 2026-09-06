@@ -8,7 +8,22 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "serial.h"
+#include "input-skif.h"
+#include "skif-arduino.h"
+#include "queue.h"
+
+#define Rate 1 /* 8kHz (125usec) */
+#define Debounce 32 /* 4ms */
+#define MaxCounter DEFAULT_MAX_COUNTER
+
+/* XXX Rate=0 not supported */
+#define TicksToMicroSeconds(x) ((x) * 125 * (1 << (Rate - 1)))
+#define TICKS_LIMIT (10000000 / TicksToMicroSeconds(1))
+
+static int PinStatus = 0;
+static int Ticks = 0;
+static bool Timeout = false;
+static int fd_ser;
 
 static bool set_nonblock(int d, bool nonblock)
 {
@@ -19,7 +34,7 @@ static bool set_nonblock(int d, bool nonblock)
 		      (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK)) < 0);
 }
 
-int open_serial(char *serdev)
+static int open_serial(char *serdev)
 {
 	int fd;
 	struct termios t;
@@ -73,7 +88,7 @@ static int send_command(int fd, unsigned char *c, int len)
 	return (i < 10) ? 0 : -1;
 }
 
-int wait_for_device(int fd, int rate, int debounce, int max)
+static int wait_for_device(int fd, int rate, int debounce, int max)
 {
 	int i;
 	char c[2];
@@ -104,4 +119,88 @@ int wait_for_device(int fd, int rate, int debounce, int max)
 	}
 
 	return 0;
+}
+
+int skif_init(bool start, char *arg, int var)
+{
+	int ret = -1;
+
+	if ((fd_ser = open_serial((arg == NULL) ? "/dev/ttyACM0" : arg)) < 0) {
+		fprintf(stderr, "device open error\n");
+		goto fin0;
+	}
+
+	fprintf(stderr, "wait for device...\n");
+	if (wait_for_device(fd_ser, Rate, Debounce, MaxCounter)) {
+		fprintf(stderr, "device not ready\n");
+		goto fin1;
+	}
+
+	ret = 0;
+	fprintf(stderr, "device ready\n");
+
+	goto fin0;
+
+fin1:
+	close(fd_ser);
+fin0:
+	return ret;
+}
+
+static bool get_status_and_time(unsigned char status)
+{
+	int pin, counter;
+	struct queue_entry q;
+	bool quit = false;
+
+	pin = status & PIN0_ON;
+	counter = status & COUNTER_MASK;
+
+	if (!counter) {
+		PinStatus = pin;
+		Ticks = 0;
+		Timeout = false;
+	} else if (PinStatus != pin) {
+		q.elapsed_time_us = TicksToMicroSeconds(Ticks);
+		q.state = PinStatus ? 1 : 0;
+		quit = (enqueue(&q) < 0);
+		PinStatus = pin;
+		Ticks = counter;
+		Timeout = false;
+	} else if (!Timeout) {
+		if (Ticks < TICKS_LIMIT) {
+			Ticks += counter;
+		} else {
+			q.elapsed_time_us = TicksToMicroSeconds(TICKS_LIMIT);
+			q.state = PinStatus ? 1 : 0;
+			quit = (enqueue(&q) < 0);
+			Timeout = true;
+		}
+	}
+
+	return quit;
+}
+
+void *skif_thread(void *arg)
+{
+	int r;
+	unsigned char c;
+
+	c = CMD_START;
+	write(fd_ser, &c, sizeof(c));
+
+	while (1) {
+		r = read(fd_ser, &c, sizeof(c));
+		if (r < 0) {
+			break;
+		} if (r == 0) {
+			sleep(1);
+			continue;
+		}
+
+		get_status_and_time(c);
+	}
+
+	notify_die();
+	return NULL;
 }
