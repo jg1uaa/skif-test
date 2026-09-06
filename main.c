@@ -3,18 +3,33 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <pthread.h>
 #include "queue.h"
 #include "input-libinput.h"
 #include "input-skif.h"
+#include "table.h"
 
 extern char *optarg;
 static uint32_t basetime_us = 100000;
 
+#define CODEBUFFER_SIZE 16
+static char codebuffer[CODEBUFFER_SIZE];
+static int codebuffer_index = 0;
+
+static const struct morse_table *decode_table = table_en;
+
+static void codebuffer_init(void)
+{
+	memset(codebuffer, 0, sizeof(codebuffer));
+	codebuffer_index = 0;
+}
+
 static void push_status(struct queue_entry *q)
 {
 	char c;
+	bool finish = false;
 
 	if (q->state) {
 		if (q->elapsed_time_us < basetime_us / 2)
@@ -34,13 +49,30 @@ static void push_status(struct queue_entry *q)
 			c = 0;
 		else if (q->elapsed_time_us < basetime_us * 2)
 			c = '!';
-		else if (q->elapsed_time_us < basetime_us * 4)
+		else if (q->elapsed_time_us < basetime_us * 4) {
 			c = ' ';
-		else
+			finish = true;
+		} else {
 			c = '\n';
+			finish = true;
+		}
 	}
 
-	if (c) {
+	if (c && !finish && codebuffer_index < sizeof(codebuffer) - 1)
+		codebuffer[codebuffer_index++] = c;
+
+	if (c && c != '\n') {
+		putchar(c);
+		fflush(stdout);
+	}
+
+	if (finish) {
+		printf(" [%s] ", decode_code(decode_table, codebuffer));
+		fflush(stdout);
+		codebuffer_init();
+	}
+
+	if (c == '\n') {
 		putchar(c);
 		fflush(stdout);
 	}
@@ -51,6 +83,8 @@ static void do_main(void)
 	struct queue_entry q;
 	int r, last_sw = -1;
 	bool timeout = false, started = false;
+
+	codebuffer_init();
 
 	while (1) {
 		r = dequeue(&q, basetime_us / 100);
@@ -85,7 +119,7 @@ int main(int argc, char *argv[])
 	int (*init)(bool, char *, int) = skif_init;
 	void *(*thread)(void *) = skif_thread;
 
-	while ((ch = getopt(argc, argv, "l:d:k")) != -1) {
+	while ((ch = getopt(argc, argv, "l:d:ksje")) != -1) {
 		switch (ch) {
 		case 'l':
 			port = optarg;
@@ -97,6 +131,17 @@ int main(int argc, char *argv[])
 			init = libinput_init;
 			thread = libinput_thread;
 			break;
+		case 's':
+			init = skif_init;
+			thread = skif_thread;
+			break;
+		case 'j':
+			decode_table = table_jp;
+			break;
+		case 'e':
+			decode_table = table_en;
+			break;
+
 		}
 	}
 

@@ -1,5 +1,5 @@
 TARGET = skif-test
-OBJ = queue.o input-libinput.o input-skif.o main.o
+OBJ = queue.o input-libinput.o input-skif.o table.o main.o
 CFLAGS = -O2 -Wall -c -fdata-sections -ffunction-sections -pthread
 LFLAGS = -Wl,--gc-sections -pthread
 LDLIBS = 
@@ -20,6 +20,9 @@ input-libinput.o: input-libinput.c
 	$(CC) $(CFLAGS) $< -o $@
 
 input-skif.o: input-skif.c
+	$(CC) $(CFLAGS) $< -o $@
+
+table.o: table.c
 	$(CC) $(CFLAGS) $< -o $@
 
 main.o: main.c
