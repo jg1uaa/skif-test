@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 SASANO Takayoshi <uaa@uaa.org.uk>
 
+#ifndef QUEUE_H
+#define QUEUE_H
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -15,3 +18,5 @@ void notify_die(void);
 int enqueue(struct queue_entry *);
 int dequeue(struct queue_entry *, int);
 int queue_init(bool);
+
+#endif
