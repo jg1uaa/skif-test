@@ -18,7 +18,22 @@ static uint32_t basetime_us = 100000;
 static char codebuffer[CODEBUFFER_SIZE];
 static int codebuffer_index = 0;
 
+#define DIT_TOO_SHORT 'X'
+#define DIT_GOOD '.'
+#define DIT_OR_DAH '?'
+#define DAH_GOOD '-'
+#define DAH_TOO_LONG '='
+
+#define SPACE_TOO_SHORT 'x'
+#define SPACE_GOOD '_'
+#define SPACE_TOO_LONG '!'
+#define CHAR_SPACE '~'
+#define WORD_SPACE '#'
+
+#define isDecodeFinish(x) ((x) == CHAR_SPACE || (x) == WORD_SPACE)
+
 static const struct morse_table *decode_table = table_en;
+static bool verbose = false;
 
 static void codebuffer_init(void)
 {
@@ -26,56 +41,73 @@ static void codebuffer_init(void)
 	codebuffer_index = 0;
 }
 
+static void simple_display(char c)
+{
+	if (c != SPACE_GOOD && !isDecodeFinish(c)) {
+		putchar(c);
+		fflush(stdout);
+	}
+
+	if (isDecodeFinish(c)) {
+		printf(" [%s] ", decode_code(decode_table, codebuffer));
+		fflush(stdout);
+	}
+
+	if (c == WORD_SPACE) {
+		putchar('\n');
+	}
+}
+
+static void verbose_display(char c, struct queue_entry *q)
+{
+	printf("%c %.3f\n", c, (double)q->elapsed_time_us / 1000);
+
+	if (isDecodeFinish(c)) {
+		printf("* %s [%s]\n\n",
+		       codebuffer, decode_code(decode_table, codebuffer));
+	}
+}
+
 static void push_status(struct queue_entry *q)
 {
 	char c;
-	bool finish = false;
 
 	if (q->state) {
 		if (q->elapsed_time_us < basetime_us / 2)
-			c = 'X';
+			c = DIT_TOO_SHORT;
 		else if (q->elapsed_time_us < (basetime_us * 3) / 2)
-			c = '.';
+			c = DIT_GOOD;
 		else if (q->elapsed_time_us < basetime_us * 2)
-			c = '?';
+			c = DIT_OR_DAH;
 		else if (q->elapsed_time_us < basetime_us * 6)
-			c = '-';
+			c = DAH_GOOD;
 		else
-			c = 'X';
+			c = DAH_TOO_LONG;
 	} else {
 		if (q->elapsed_time_us < basetime_us / 2)
-			c = 'x';
+			c = SPACE_TOO_SHORT;
 		else if (q->elapsed_time_us < (basetime_us * 3) / 2)
-			c = 0;
+			c = SPACE_GOOD;
 		else if (q->elapsed_time_us < basetime_us * 2)
-			c = '!';
-		else if (q->elapsed_time_us < basetime_us * 4) {
-			c = ' ';
-			finish = true;
-		} else {
-			c = '\n';
-			finish = true;
-		}
+			c = SPACE_TOO_LONG;
+		else if (q->elapsed_time_us < basetime_us * 4)
+			c = CHAR_SPACE;
+		else
+			c = WORD_SPACE;
 	}
 
-	if (c && !finish && codebuffer_index < sizeof(codebuffer) - 1)
-		codebuffer[codebuffer_index++] = c;
-
-	if (c && c != '\n') {
-		putchar(c);
-		fflush(stdout);
+	if (c != SPACE_GOOD && !isDecodeFinish(c)) {
+		if (codebuffer_index < sizeof(codebuffer) - 1)
+			codebuffer[codebuffer_index++] = c;
 	}
 
-	if (finish) {
-		printf(" [%s] ", decode_code(decode_table, codebuffer));
-		fflush(stdout);
+	if (verbose)
+		verbose_display(c, q);
+	else
+		simple_display(c);
+
+	if (isDecodeFinish(c))
 		codebuffer_init();
-	}
-
-	if (c == '\n') {
-		putchar(c);
-		fflush(stdout);
-	}
 }
 
 static void do_main(void)
@@ -119,7 +151,7 @@ int main(int argc, char *argv[])
 	int (*init)(bool, char *, int) = skif_init;
 	void *(*thread)(void *) = skif_thread;
 
-	while ((ch = getopt(argc, argv, "l:d:ksje")) != -1) {
+	while ((ch = getopt(argc, argv, "l:d:ksjev")) != -1) {
 		switch (ch) {
 		case 'l':
 			port = optarg;
@@ -141,7 +173,9 @@ int main(int argc, char *argv[])
 		case 'e':
 			decode_table = table_en;
 			break;
-
+		case 'v':
+			verbose = true;
+			break;
 		}
 	}
 
