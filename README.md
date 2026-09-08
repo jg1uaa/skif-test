@@ -2,7 +2,7 @@
 
 ## Description
 
-Morse decoder for practice use, with [SKIF](https://github.com/jg1uaa/skif-arduino)(simple key interface) and libinput.
+Morse decoder for practice use, with [SKIF] (https://github.com/jg1uaa/skif-arduino)(simple key interface) and libinput.
 
 ## Usage
 
@@ -15,6 +15,8 @@ $ skif-test [options]
 <dl>
  <dt><code> -l &lt;device&gt;</code>
  <dd>Device file, <code>/dev/ttyACM0</code> (SKIF) or <code>seat0</code> (libinput) is default.
+ <dt><code> -d &lt;msec&gt;</code>
+ <dd>Basetime (dot time) for judge elemnts. Default 100 (msec).
  <dt><code> -k</code>
  <dd>Use libinput interface.
  <dt><code> -s</code>
@@ -26,6 +28,36 @@ $ skif-test [options]
  <dt><code> -v</code>
  <dd>Verbose mode. Display will be "element status / duration (msec)".
 </dl>
+
+## Element status
+
+|character|status|time range (basetime x N)|
+|--|--|--|
+|X|Too short dit|0 < N < 0.5|
+|.|Dit|0.5 <= N < 1.5 |
+|?|Could not determine dit or dah|1.5 <= N < 2|
+|-|Dah|2 <= N < 6|
+|=|Too long dah|6 <= N|
+|x|Too short element space|0 < N < 0.5|
+|_|Element space (verbose mode only)|0.5 <= N < 1.5|
+|!|Too long element space|1.5 <= N < 2|
+|~|Character space (verbose mode only)|2 <= N < 4|
+|#|Word space (verbose mode only)|4 <= N|
+
+## Example (with SKIF)
+
+```
+$ ./skif-test -l /dev/ttyU0
+wait for device...
+device ready
+-.-. [C] --.- [Q] -.-. [C] --.- [Q]
+-.. [D] . [E]
+X--- [�]
+--. [G] .---- [1] ..- [U] X- [�] .- [A]
+-.- [K]
+^C
+$
+```
 
 ## Note
 
