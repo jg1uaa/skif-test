@@ -22,6 +22,7 @@
 
 static int PinStatus = 0;
 static int Ticks = 0;
+static bool EventMask = false;
 static int fd_ser;
 
 static bool set_nonblock(int d, bool nonblock)
@@ -161,12 +162,16 @@ static bool get_status_and_time(unsigned char status)
 	counter = status & COUNTER_MASK;
 
 	if (!counter) {
-		PinStatus = pin;
+		/* if pin-off, suppress first event */
+		EventMask = !(PinStatus = pin);
 		Ticks = 0;
 	} else if (PinStatus != pin) {
-		q.elapsed_time_us = TicksToMicroSeconds(Ticks);
-		q.state = PinStatus ? 1 : 0;
-		quit = (enqueue(&q) < 0);
+		if (!EventMask) {
+			q.elapsed_time_us = TicksToMicroSeconds(Ticks);
+			q.state = PinStatus ? 1 : 0;
+			quit = (enqueue(&q) < 0);
+		}
+		EventMask = false;
 		PinStatus = pin;
 		Ticks = counter;
 	} else {
