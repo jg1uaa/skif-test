@@ -55,7 +55,7 @@ const struct morse_table table_en[] = {
 	{"---..",	"8"},
 	{"----.",	"9"},
 	{"........",	"/HH"},
-	{NULL,		"�"},
+	{NULL,		"*"},
 };
 
 const int table_en_entry = sizeof(table_en) / sizeof(struct morse_table);
