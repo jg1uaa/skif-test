@@ -44,7 +44,9 @@ $ skif-test [options]
 |~|Character space (verbose mode only)|2 <= N < 4|
 |#|Word space (verbose mode only)|4 <= N|
 
-## Example (with SKIF)
+## Example
+
+### with SKIF
 
 ```
 $ ./skif-test -l /dev/ttyU0
@@ -55,6 +57,41 @@ device ready
 X--- [*]
 --. [G] .---- [1] ..- [U] X- [*] .- [A]
 -.- [K]
+^C
+$
+```
+
+### with libinput, verbose mode and Japanede decorder
+
+```
+$ ./skif-test -k -v -j
+press [Esc] to quit
+. 110.001
+_ 79.996
+- 250.001
+# 1000.000
+* .- [イ]
+
+. 90.001
+_ 89.998
+- 219.999
+_ 100.001
+. 80.000
+_ 59.999
+- 320.001
+# 1000.000
+* .-.- [ロ]
+
+- 260.003
+_ 79.998
+. 79.999
+_ 80.003
+. 69.998
+_ 79.930
+. 70.073
+# 1000.000
+* -... [ハ]
+
 ^C
 $
 ```
