@@ -61,7 +61,7 @@ X--- [*]
 $
 ```
 
-### with libinput, verbose mode and Japanede decorder
+### with libinput, verbose mode and Japanese decorder
 
 ```
 $ ./skif-test -k -v -j
