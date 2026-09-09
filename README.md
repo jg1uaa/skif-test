@@ -2,7 +2,7 @@
 
 ## Description
 
-Morse decoder for practice use, with [SKIF] (https://github.com/jg1uaa/skif-arduino)(simple key interface) and libinput.
+Morse decoder for practice use, with [SKIF](https://github.com/jg1uaa/skif-arduino) (simple key interface) and libinput.
 
 ## Usage
 
