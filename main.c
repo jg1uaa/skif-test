@@ -32,6 +32,29 @@ static int codebuffer_index = 0;
 
 #define isDecodeFinish(x) ((x) == CHAR_SPACE || (x) == WORD_SPACE)
 
+struct ditdah_def {
+	double dit_too_short;
+	double dit_good;
+	double dit_or_dah;
+	double dah_good;
+	double space_too_short;
+	double space_good;
+	double space_too_long;
+	double char_space;
+};
+
+const struct ditdah_def normal_def = {
+	.dit_too_short = 0.5,
+	.dit_good = 1.5,
+	.dit_or_dah = 2,
+	.dah_good = 6,
+	.space_too_short = 0.5,
+	.space_good = 1.5,
+	.space_too_long = 2,
+	.char_space = 4,
+};
+
+static const struct ditdah_def *ddef = &normal_def;
 static const struct morse_table *decode_table = table_en;
 static bool verbose = false;
 
@@ -73,24 +96,24 @@ static void push_status(struct queue_entry *q)
 	char c;
 
 	if (q->state) {
-		if (q->elapsed_time_us < basetime_us / 2)
+		if (q->elapsed_time_us < basetime_us * ddef->dit_too_short)
 			c = DIT_TOO_SHORT;
-		else if (q->elapsed_time_us < (basetime_us * 3) / 2)
+		else if (q->elapsed_time_us < basetime_us * ddef->dit_good)
 			c = DIT_GOOD;
-		else if (q->elapsed_time_us < basetime_us * 2)
+		else if (q->elapsed_time_us < basetime_us * ddef->dit_or_dah)
 			c = DIT_OR_DAH;
-		else if (q->elapsed_time_us < basetime_us * 6)
+		else if (q->elapsed_time_us < basetime_us * ddef->dah_good)
 			c = DAH_GOOD;
 		else
 			c = DAH_TOO_LONG;
 	} else {
-		if (q->elapsed_time_us < basetime_us / 2)
+		if (q->elapsed_time_us < basetime_us * ddef->space_too_short)
 			c = SPACE_TOO_SHORT;
-		else if (q->elapsed_time_us < (basetime_us * 3) / 2)
+		else if (q->elapsed_time_us < basetime_us * ddef->space_good)
 			c = SPACE_GOOD;
-		else if (q->elapsed_time_us < basetime_us * 2)
+		else if (q->elapsed_time_us < basetime_us * ddef->space_too_long)
 			c = SPACE_TOO_LONG;
-		else if (q->elapsed_time_us < basetime_us * 4)
+		else if (q->elapsed_time_us < basetime_us * ddef->char_space)
 			c = CHAR_SPACE;
 		else
 			c = WORD_SPACE;
@@ -119,7 +142,7 @@ static void do_main(void)
 	codebuffer_init();
 
 	while (1) {
-		r = dequeue(&q, basetime_us / 100);
+		r = dequeue(&q, (basetime_us * ddef->char_space) / 1000);
 
 		if (r < 0) {
 			/* error */
@@ -135,7 +158,7 @@ static void do_main(void)
 			}
 		} else if (r > 0 && started && !timeout) {
 			q.state = !last_sw;
-			q.elapsed_time_us = basetime_us * 10;
+			q.elapsed_time_us = basetime_us * ddef->char_space;
 			push_status(&q);
 
 			timeout = true;
