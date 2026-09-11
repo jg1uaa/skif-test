@@ -131,7 +131,7 @@ const struct morse_table table_jp[] = {
 	{"..-..-",	"/ｳｳ"},
 	{"-..-..",	"/ﾎﾎ"},
 	{"..--..",	"？"},
-	{NULL,		"�"},
+	{NULL,		"＊"},
 };
 
 const int table_jp_entry = sizeof(table_jp) / sizeof(struct morse_table);
