@@ -56,12 +56,27 @@ const struct ditdah_def normal_def = {
 
 static const struct ditdah_def *ddef = &normal_def;
 static const struct morse_table *decode_table = table_en;
-static bool verbose = false;
+
+enum display_mode {simple, verbose, decodeonly};
+static enum display_mode display = simple;
 
 static void codebuffer_init(void)
 {
 	memset(codebuffer, 0, sizeof(codebuffer));
 	codebuffer_index = 0;
+}
+
+static void decode_display(char c)
+{
+	if (isDecodeFinish(c)) {
+		printf("%s", decode_code(decode_table, codebuffer));
+		fflush(stdout);
+	}
+
+	if (c == WORD_SPACE) {
+		printf("%s", (decode_table == table_jp) ? "　" : " ");
+		fflush(stdout);
+	}
 }
 
 static void simple_display(char c)
@@ -124,10 +139,17 @@ static void push_status(struct queue_entry *q)
 			codebuffer[codebuffer_index++] = c;
 	}
 
-	if (verbose)
+	switch (display) {
+	case decodeonly:
+		decode_display(c);
+		break;
+	case verbose:
 		verbose_display(c, q);
-	else
+		break;
+	default:
 		simple_display(c);
+		break;
+	}
 
 	if (isDecodeFinish(c))
 		codebuffer_init();
@@ -174,7 +196,7 @@ int main(int argc, char *argv[])
 	int (*init)(bool, char *, int) = skif_init;
 	void *(*thread)(void *) = skif_thread;
 
-	while ((ch = getopt(argc, argv, "l:d:ksjev")) != -1) {
+	while ((ch = getopt(argc, argv, "l:d:ksjevq")) != -1) {
 		switch (ch) {
 		case 'l':
 			port = optarg;
@@ -197,7 +219,10 @@ int main(int argc, char *argv[])
 			decode_table = table_en;
 			break;
 		case 'v':
-			verbose = true;
+			display = verbose;
+			break;
+		case 'q':
+			display = decodeonly;
 			break;
 		}
 	}
