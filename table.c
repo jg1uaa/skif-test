@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <stdlib.h>
 #include "table.h"
 
 const struct morse_table table_en[] = {
@@ -138,10 +139,27 @@ const int table_jp_entry = sizeof(table_jp) / sizeof(struct morse_table);
 
 const char *decode_code(const struct morse_table *table, char *code)
 {
-	int i;
+	int i, n;
+	char *tmp, *p;
+
+	tmp = p = alloca((n = strlen(code)) + 1);
+	for (i = 0; i < n; i++) {
+		switch (code[i]) {
+		case '!':
+		case 'x':
+			break;
+		case 'X':
+			*p++ = '.';
+			break;
+		default:
+			*p++ = code[i];
+			break;
+		}
+	}
+	*p = '\0';
 
 	for (i = 0; table[i].code != NULL; i++) {
-		if (!strcmp(table[i].code, code))
+		if (!strcmp(table[i].code, tmp))
 			return table[i].result;
 	}
 
