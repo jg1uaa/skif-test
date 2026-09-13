@@ -41,6 +41,7 @@ struct ditdah_def {
 	double space_good;
 	double space_too_long;
 	double char_space;
+	double timeout;
 };
 
 const struct ditdah_def normal_def = {
@@ -52,6 +53,7 @@ const struct ditdah_def normal_def = {
 	.space_good = 1.5,
 	.space_too_long = 2,
 	.char_space = 4,
+	.timeout = 7, // dah_good + 1
 };
 
 static const struct ditdah_def *ddef = &normal_def;
@@ -164,7 +166,7 @@ static void do_main(void)
 	codebuffer_init();
 
 	while (1) {
-		r = dequeue(&q, (basetime_us * ddef->char_space) / 1000);
+		r = dequeue(&q, (basetime_us * ddef->timeout) / 1000);
 
 		if (r < 0) {
 			/* error */
@@ -180,7 +182,7 @@ static void do_main(void)
 			}
 		} else if (r > 0 && started && !timeout) {
 			q.state = !last_sw;
-			q.elapsed_time_us = basetime_us * ddef->char_space;
+			q.elapsed_time_us = basetime_us * ddef->timeout;
 			push_status(&q);
 
 			timeout = true;
