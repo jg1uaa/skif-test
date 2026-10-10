@@ -29,8 +29,10 @@ static int codebuffer_index = 0;
 #define SPACE_TOO_LONG '!'
 #define CHAR_SPACE '~'
 #define WORD_SPACE '#'
+#define DECODE_TIMEOUT '|'
 
-#define isDecodeFinish(x) ((x) == CHAR_SPACE || (x) == WORD_SPACE)
+#define isWordSpace(x) ((x) == WORD_SPACE || (x) == DECODE_TIMEOUT)
+#define isDecodeFinish(x) ((x) == CHAR_SPACE || isWordSpace(x))
 
 struct ditdah_def {
 	double dit_too_short;
@@ -53,7 +55,7 @@ const struct ditdah_def normal_def = {
 	.space_good = 1.5,
 	.space_too_long = 2,
 	.char_space = 4,
-	.timeout = 7, // dah_good + 1
+	.timeout = 14, // at least dah_good + 1
 };
 
 static const struct ditdah_def *ddef = &normal_def;
@@ -75,7 +77,7 @@ static void decode_display(char c)
 		fflush(stdout);
 	}
 
-	if (c == WORD_SPACE) {
+	if (isWordSpace(c)) {
 		printf("%s", (decode_table == table_jp) ? "　" : " ");
 		fflush(stdout);
 	}
@@ -94,6 +96,11 @@ static void simple_display(char c)
 	}
 
 	if (c == WORD_SPACE) {
+		printf(" [space] ");
+		fflush(stdout);
+	}
+
+	if (c == DECODE_TIMEOUT) {
 		putchar('\n');
 	}
 }
@@ -132,8 +139,10 @@ static void push_status(struct queue_entry *q)
 			c = SPACE_TOO_LONG;
 		else if (q->elapsed_time_us < basetime_us * ddef->char_space)
 			c = CHAR_SPACE;
-		else
+		else if (q->elapsed_time_us < basetime_us * ddef->timeout)
 			c = WORD_SPACE;
+		else
+			c = DECODE_TIMEOUT;
 	}
 
 	if (c != SPACE_GOOD && !isDecodeFinish(c)) {
