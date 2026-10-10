@@ -13,6 +13,7 @@
 
 extern char *optarg;
 static uint32_t basetime_us = 100000;
+static bool dot_ratio = false;
 
 #define CODEBUFFER_SIZE 16
 static char codebuffer[CODEBUFFER_SIZE];
@@ -107,7 +108,12 @@ static void simple_display(char c)
 
 static void verbose_display(char c, struct queue_entry *q)
 {
-	printf("%c %.3f\n", c, (double)q->elapsed_time_us / 1000);
+	double n;
+
+	n = dot_ratio ? ((double)q->elapsed_time_us / basetime_us) :
+		((double)q->elapsed_time_us / 1000);
+
+	printf("%c %.3f\n", c, n);
 
 	if (isDecodeFinish(c)) {
 		printf("* %s [%s]\n\n",
@@ -207,7 +213,7 @@ int main(int argc, char *argv[])
 	int (*init)(bool, char *, int) = skif_init;
 	void *(*thread)(void *) = skif_thread;
 
-	while ((ch = getopt(argc, argv, "l:d:ksjevq")) != -1) {
+	while ((ch = getopt(argc, argv, "l:d:ksjevqr")) != -1) {
 		switch (ch) {
 		case 'l':
 			port = optarg;
@@ -234,6 +240,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'q':
 			display = decodeonly;
+			break;
+		case 'r':
+			dot_ratio = true;
 			break;
 		}
 	}
