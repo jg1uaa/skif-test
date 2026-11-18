@@ -41,8 +41,8 @@ $ skif-test [options]
 |x|Too short element space|0 < N < 0.5|
 |_|Element space (verbose mode only)|0.5 <= N < 1.5|
 |!|Too long element space|1.5 <= N < 2|
-|~|Character space (verbose mode only)|2 <= N < 4|
-|#|Word space (verbose mode only)|4 <= N|
+|~|Character space (verbose mode only)|2 <= N < 5|
+|#|Word space (verbose mode only)|5 <= N|
 
 ## Example
 
